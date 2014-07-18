@@ -1,0 +1,198 @@
+Activity Monitoring Data
+========================================================
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring web pages (click the **Help** toolbar button for more details on using R Markdown).
+
+We assume the following packages have been installed
+data.table
+kable
+lattice
+
+Loading and preprocessing the data
+```{r}
+library(data.table)
+```
+We need to set a path
+```{r}
+setwd('C:\\temp\\repdata-data-activity')
+```
+
+Lets read in the data and make this into data frame so its easaier to work with
+
+```{r}
+activity <- read.csv(file='C:\\temp\\repdata-data-activity\\activity.csv', header=T)
+
+activitydf <- data.frame(Date=as.Date(as.character(activity$date, "%Y/%m/%d")), Steps=as.integer(activity$steps), Interval=as.integer(activity$interval))
+```
+What is mean total number of steps taken per day?
+
+Now Lets calculate the total number of steps in a day with the aggregate package
+```{r}
+aggactivity <- aggregate(activitydf$Steps~activitydf$Date, FUN=sum)
+```
+Lets make a histogram of the total number of steps taken each day. Im going to make an axis of just month and day since all the data points have the same year.
+
+```{r barplot, fig.width=10, fig.height=10,echo=TRUE}
+
+plot_counts <- barplot(as.vector(aggactivity[,2]))
+
+
+dates <- gsub("2012-", "", aggactivity[,1])
+
+axis(1,at=plot_counts,labels=dates, cex.axis=.75, las=2)
+
+title(main = list("Total Number of Steps taken per Day", font = 4))
+```
+
+Lets Calculate and report the mean and median total number of steps taken per day
+
+```{r}
+aggactivitymean <- aggregate(activitydf$Steps~activitydf$Date, FUN=mean, na.rm=TRUE)
+
+kable(aggactivitymean, format = "markdown")
+```
+
+The median of the total number of steps taken per day is:
+```{r}
+aggactivitymedian <- aggregate(activitydf$Steps~activitydf$Date, FUN=median, na.rm=TRUE)
+kable(aggactivitymedian, format = "markdown")
+```
+What is the average daily activity pattern?
+
+Now lets generate results to determine the daily activity pattern. Let's make a time series line plot with 5-minute intervals (x-axis) and the average number of steps taken, averaged across all days (y-axis). Lets calculate the average over the intervals first. then plot it
+
+```{r aggactivityintervalmean,echo=TRUE}
+aggactivityintervalmean <- aggregate(activitydf$Steps~activitydf$Interval, FUN=mean, na.rm=TRUE)
+```
+
+```{r averagestepstaken, fig.width=10, fig.height=10,echo=TRUE}
+plot(aggactivityintervalmean[-1,1], aggactivityintervalmean[-1,2], type="l", xlab="Intervals", ylab="Average number of steps taken", col="blue")
+```
+
+To determine which interval contains the maximum number of steps I'll subset the interval mean results. By looking at the plot I can subset with 200 steps or more and output the intervals. The interval containing the max number of steps is:
+
+```{r}
+intervalsover200 <- subset(aggactivityintervalmean, aggactivityintervalmean[,2] > 200)
+
+maxinterval <- intervalsover200[,1]
+
+kable(intervalsover200, format = "markdown")
+```
+The interval containing the max number of steps is: `r maxinterval`
+
+Imputing missing values
+
+If I want to know how many NAs there are in my data set then I will do a quick summary of my data frame:
+```{r}
+summary(activitydf)
+```
+From this I can see that only the Steps column contains NAs so I'll run a Colsums function
+```{r}
+na_sums <- colSums(is.na(activitydf))
+steps_sum <- na_sums[2]
+```
+ and I can see that Steps contains `r steps_sum` NA values.
+
+Next we need to impute some missing values with average steps calculated per day.So will replace the NAs with the average from the following day. This address the issue with 10/1 which has no values before it. For 11-30 we will use the average from 11-29. The code below creates a new imputed dataframe with no NAs called imputedactivitydf 
+
+```{r}
+imputedactivitydf <- activitydf
+imputedactivitydf$Steps[imputedactivitydf$Date =='2012-10-01'] <- "0.4375"
+imputedactivitydf$Steps[imputedactivitydf$Date =='2012-10-08'] <- "44.48264"
+imputedactivitydf$Steps[imputedactivitydf$Date =='2012-11-01'] <- "36.80556"
+imputedactivitydf$Steps[imputedactivitydf$Date =='2012-11-04'] <- "36.24653"
+imputedactivitydf$Steps[imputedactivitydf$Date =='2012-11-09'] <- "43.77778"
+imputedactivitydf$Steps[imputedactivitydf$Date =='2012-11-10'] <- "43.77778"
+imputedactivitydf$Steps[imputedactivitydf$Date =='2012-11-14'] <- "0.142361"
+imputedactivitydf$Steps[imputedactivitydf$Date =='2012-11-30'] <- "24.46875"
+```    
+
+Lets make a histogram of the total number of steps taken each day with the imputed data
+```{r ,fig.width=10, fig.height=10,echo=TRUE}
+imputedaggactivitysum <- aggregate(as.numeric(imputedactivitydf$Steps)~imputedactivitydf$Date, FUN=sum)
+
+```{r boxplotimputed,fig.width=10, fig.height=10}
+plot_countsimputed <- barplot(as.vector(imputedaggactivitysum[,2]))
+
+datesimputed <- gsub("2012-", "", imputedaggactivitysum[,1])
+                       
+axis(1,at=plot_countsimputed,labels=datesimputed, cex.axis=.75, las=2)
+
+title(main = list("Total Number of Steps taken per Day: Imputed Data", font = 4))
+```
+
+Lets Calculate and report the mean and median total number of steps taken per day with imputed data. The mean of the total number of steps taken per day from imputed data is:
+```{r}
+imputedaggactivitymean <- aggregate(as.numeric(imputedactivitydf$Steps)~imputedactivitydf$Date, FUN=mean, na.rm=TRUE)
+
+imputedaggactivitymean
+```
+
+The median of the total number of steps taken per day from imputed data is:
+```{r}
+imputedaggactivitymedian <- aggregate(as.numeric(imputedactivitydf$Steps)~imputedactivitydf$Date, FUN=median, na.rm=TRUE)
+
+imputedaggactivitymedian
+
+imputedaggactivityintervalmean <- aggregate(as.numeric(imputedactivitydf$Steps)~activitydf$Interval, FUN=mean, na.rm=TRUE)
+```
+One big difference is you can now see a median other than zero since the data set has been imputed.This is the biggest impact I see on the estimates of the total daily number of steps.
+
+Are there differences in activity patterns between weekdays and weekends?
+
+In order to make two plots we need to take the average number of steps taken averaged across all weekday days
+or weekend days. To start, lets update our data set to reflect whether its a weekday or weekend.
+```{r}
+wdays <- weekdays(imputedactivitydf$Date)
+wdays <- gsub("Monday", "weekdays", wdays)
+wdays <- gsub("Tuesday", "weekdays", wdays)
+wdays <- gsub("Wednesday", "weekdays", wdays)
+wdays <- gsub("Thursday", "weekdays", wdays)
+wdays <- gsub("Friday", "weekdays", wdays)
+wdays <- gsub("Saturday", "weekends", wdays)
+wdays <- gsub("Sunday", "weekends", wdays)
+```
+
+Next lets create a new factor variable in the dataset with two levels - "weekday" and "weekend" indicating whether a given date is a weekday or weekend day. Then we will subset our factor data by weekday and weekends.From there we can aggregate and calculate the mean steps over intervals for both weekdays and weekends.
+```{r}
+fwdays <- factor(wdays)
+
+imputedactivitydfwdays <- cbind(imputedactivitydf, fwdays)
+
+
+weekdaysimputed <- subset(imputedactivitydfwdays, imputedactivitydfwdays[,4] =='weekdays')
+
+weekendsimputed <- subset(imputedactivitydfwdays, imputedactivitydfwdays[,4] =='weekends')
+
+imputedaggactivityintervalmeanweekdays <- aggregate(as.numeric(weekdaysimputed$Steps)~weekdaysimputed$Interval, FUN=mean, na.rm=TRUE)
+
+imputedaggactivityintervalmeanweekends <- aggregate(as.numeric(weekendsimputed$Steps)~weekendsimputed$Interval, FUN=mean, na.rm=TRUE)
+```
+Next lets make a panel plot containing a time series plot of the 5-minute interval and the average data calculated above.
+
+```{r imputedactivityweekdaysends, fig.width=12, fig.height=24,echo=TRUE}
+par(mfrow=c(2,1))
+
+plot(imputedaggactivityintervalmeanweekdays[-1,1],imputedaggactivityintervalmeanweekdays[-1,2], type="l", xlab="Intervals", ylab="Steps taken: Weekdays", col="blue")
+
+plot(imputedaggactivityintervalmeanweekends[-1,1],imputedaggactivityintervalmeanweekends[-1,2], type="l", xlab="Intervals", ylab="Steps taken: Weekends", col="green")
+```
+Now lets make the plot again but with lattice. 
+```{r lattice plots, }
+par(mfrow=c(2,1))
+library(lattice)
+
+panel.smoother <- function(x, y) {
+  panel.xyplot(x, y) # show points 
+  panel.loess(x, y)  # show smoothed line 
+}
+
+xyplot(imputedaggactivityintervalmeanweekdays[-1,2]~imputedaggactivityintervalmeanweekdays[-1,1],scales=list(cex=.8, col="blue"), panel=panel.smoother,xlab="Intervals", ylab="Steps taken: Weekdays", col="blue")
+
+xyplot(imputedaggactivityintervalmeanweekends[-1,2]~imputedaggactivityintervalmeanweekends[-1,1],scales=list(cex=.8, col="blue"), panel=panel.smoother,xlab="Intervals", ylab="Steps taken: Weekends", col="blue")
+```
+
+
+
+You can see that there is consistently more steps taken across intervals in the weekend. For weekdays you see can two peaks and then it tappers of. Perhaps these peaks are when folks are going to work?
+
